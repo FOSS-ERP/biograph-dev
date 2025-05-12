@@ -85,7 +85,8 @@ def get_appointments_to_invoice(patient, company):
 						"reference_type": "Patient Appointment",
 						"reference_name": appointment.name,
 						"service": appointment.procedure_template,
-						"practitioner" : appointment.practitioner
+						"practitioner" : appointment.practitioner,
+						"date" : appointment.appointment_date
 					}
 				)
 		# Consultation Appointments, should check fee validity
@@ -109,7 +110,8 @@ def get_appointments_to_invoice(patient, company):
 					"service": service_item,
 					"rate": practitioner_charge,
 					"income_account": income_account,
-					"practitioner": appointment.practitioner
+					"practitioner": appointment.practitioner,
+					"date": appointment.appointment_date
 				}
 			)
 
@@ -149,6 +151,7 @@ def get_encounters_to_invoice(patient, company):
 						"service": service_item,
 						"rate": practitioner_charge,
 						"income_account": income_account,
+						"date" : encounter.encounter_date
 					}
 				)
 
@@ -159,7 +162,7 @@ def get_lab_tests_to_invoice(patient, company):
 	lab_tests_to_invoice = []
 	lab_tests = frappe.get_list(
 		"Lab Test",
-		fields=["name", "template"],
+		fields=["name", "template", "date"],
 		filters={
 			"patient": patient.name,
 			"company": company,
@@ -174,7 +177,7 @@ def get_lab_tests_to_invoice(patient, company):
 		)
 		if is_billable:
 			lab_tests_to_invoice.append(
-				{"reference_type": "Lab Test", "reference_name": lab_test.name, "service": item}
+				{"reference_type": "Lab Test", "reference_name": lab_test.name, "service": item, "date":lab_test.date}
 			)
 
 	return lab_tests_to_invoice
@@ -184,7 +187,7 @@ def get_observations_to_invoice(patient, company):
 	observations_to_invoice = []
 	observations = frappe.get_list(
 		"Observation",
-		fields=["name", "observation_template"],
+		fields=["name", "observation_template", "posting_date"],
 		filters={
 			"patient": patient.name,
 			"company": company,
@@ -199,7 +202,7 @@ def get_observations_to_invoice(patient, company):
 		)
 		if is_billable:
 			observations_to_invoice.append(
-				{"reference_type": "Observation", "reference_name": observation.name, "service": item}
+				{"reference_type": "Observation", "reference_name": observation.name, "service": item, "date" : observation.posting_date}
 			)
 
 	return observations_to_invoice
@@ -225,7 +228,7 @@ def get_clinical_procedures_to_invoice(patient, company):
 			)
 			if procedure.procedure_template and is_billable:
 				clinical_procedures_to_invoice.append(
-					{"reference_type": "Clinical Procedure", "reference_name": procedure.name, "service": item}
+					{"reference_type": "Clinical Procedure", "reference_name": procedure.name, "service": item, "date" : procedure.start_date}
 				)
 
 		# consumables
@@ -263,7 +266,7 @@ def get_inpatient_services_to_invoice(patient, company):
 	inpatient_services = frappe.db.sql(
 		"""
 			SELECT
-				io.*
+				io.*, ip.scheduled_date
 			FROM
 				`tabInpatient Record` ip, `tabInpatient Occupancy` io
 			WHERE
@@ -303,6 +306,7 @@ def get_inpatient_services_to_invoice(patient, company):
 					"reference_name": inpatient_occupancy.name,
 					"service": service_unit_type.item,
 					"qty": qty,
+					"date": inpatient_occupancy.scheduled_date
 				}
 			)
 
@@ -313,7 +317,7 @@ def get_therapy_plans_to_invoice(patient, company):
 	therapy_plans_to_invoice = []
 	therapy_plans = frappe.get_list(
 		"Therapy Plan",
-		fields=["therapy_plan_template", "name"],
+		fields=["therapy_plan_template", "name", "start_date"],
 		filters={
 			"patient": patient.name,
 			"invoiced": 0,
@@ -330,6 +334,7 @@ def get_therapy_plans_to_invoice(patient, company):
 				"service": frappe.db.get_value(
 					"Therapy Plan Template", plan.therapy_plan_template, "linked_item"
 				),
+				"date" : plan.start_date
 			}
 		)
 
@@ -365,6 +370,7 @@ def get_therapy_sessions_to_invoice(patient, company):
 						"reference_type": "Therapy Session",
 						"reference_name": therapy.name,
 						"service": frappe.db.get_value("Therapy Type", therapy.therapy_type, "item"),
+						"date" : therapy.start_date
 					}
 				)
 
@@ -405,6 +411,7 @@ def get_service_requests_to_invoice(patient, company):
 					"reference_name": service_request.name,
 					"service": item,
 					"qty": service_request.quantity if service_request.quantity else 1,
+					"date": service_request.order_date 
 				}
 			)
 	return orders_to_invoice
